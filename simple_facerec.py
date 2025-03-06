@@ -10,7 +10,7 @@ class SimpleFacerec:
         self.known_face_names = []
 
         # Resize frame for a faster speed
-        self.frame_resizing = 0.45
+        self.frame_resizing = 0.5
 
     def load_encoding_images(self, images_path):
         """
@@ -18,25 +18,23 @@ class SimpleFacerec:
         :param images_path:
         :return:
         """
-        # Load Images
-        images_path = glob.glob(os.path.join(images_path, "*.*"))
+        # Loop through each person in the training directory
+        for root, dirs, files in os.walk(images_path):
+            for file in files:
+                if file.endswith(('jpg', 'jpeg', 'png')):
+                    img_path = os.path.join(root, file)
+                    img = cv2.imread(img_path)
+                    rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        print("{} encoding images found.".format(len(images_path)))
+                    # Get the name of the person
+                    name = os.path.basename(root)
 
-        # Store image encoding and names
-        for img_path in images_path:
-            img = cv2.imread(img_path)
-            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    # Encode the loaded image into a feature vector
+                    img_encoding = face_recognition.face_encodings(rgb_img)[0]
 
-            # Get the filename only from the initial file path.
-            basename = os.path.basename(img_path)
-            (filename, ext) = os.path.splitext(basename)
-            # Get encoding
-            img_encoding = face_recognition.face_encodings(rgb_img)[0]
-
-            # Store file name and file encoding
-            self.known_face_encodings.append(img_encoding)
-            self.known_face_names.append(filename)
+                    # Store the encoding and the name
+                    self.known_face_encodings.append(img_encoding)
+                    self.known_face_names.append(name)
         print("Encoding images loaded")
 
     def detect_known_faces(self, frame):
@@ -50,7 +48,7 @@ class SimpleFacerec:
         face_names = []
         for face_encoding in face_encodings:
             # See if the face is a match for the known face(s)
-            matches = face_recognition.compare_faces(self.known_face_encodings, face_encoding ,tolerance=0.55)
+            matches = face_recognition.compare_faces(self.known_face_encodings, face_encoding ,tolerance=0.35)
             name = "Unknown"
 
             # # If a match was found in known_face_encodings, just use the first one.
