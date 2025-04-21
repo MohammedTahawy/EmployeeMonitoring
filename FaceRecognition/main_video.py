@@ -9,7 +9,7 @@ sfr = SimpleFacerec()
 sfr.load_encoding_images("images/")
 
 
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 
 # Connect to SQLite database
 conn = sqlite3.connect('EmployeeMonitoring.db')
@@ -43,7 +43,7 @@ while True:
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 200), 4)
 
         # Check if the person was detected recently
-        if name not in last_detection or (time.time() - last_detection[name]) > 60:  # 60 seconds threshold
+        if name not in last_detection or (time.time() - last_detection[name]) > 60:  # 60-second threshold
             # Insert event into the database
             cursor.execute('''
             INSERT INTO events (camera_id, person_id, time)

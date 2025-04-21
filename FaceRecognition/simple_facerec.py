@@ -1,7 +1,7 @@
 import face_recognition
 import cv2
 import os
-import glob
+import pickle
 import numpy as np
 
 class SimpleFacerec:
@@ -10,7 +10,7 @@ class SimpleFacerec:
         self.known_face_names = []
 
         # Resize frame for a faster speed
-        self.frame_resizing = 0.5
+        self.frame_resizing = 0.2
 
     def load_encoding_images(self, images_path):
         """
@@ -18,24 +18,43 @@ class SimpleFacerec:
         :param images_path:
         :return:
         """
-        # Loop through each person in the training directory
-        for root, dirs, files in os.walk(images_path):
-            for file in files:
-                if file.endswith(('jpg', 'jpeg', 'png')):
-                    img_path = os.path.join(root, file)
-                    img = cv2.imread(img_path)
-                    rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-                    # Get the name of the person
-                    name = os.path.basename(root)
+        # Check if encodings file exists
+        encodings_file = "FaceRecognition/images/encodings.pkl"
+        if os.path.exists(encodings_file):
+            # Load encodings from file
+            with open(encodings_file, "rb") as f:
+                data = pickle.load(f)
+                self.known_face_encodings = data["encodings"]
+                self.known_face_names = data["names"]
+            print("Loaded encodings from file.")
 
-                    # Encode the loaded image into a feature vector
-                    img_encoding = face_recognition.face_encodings(rgb_img)[0]
+        else:
+            # Encode images and save to file
+            print("Encoding images...")
+            # Loop through each person in the training directory
+            for root, dirs, files in os.walk(images_path):
+                for file in files:
+                    if file.endswith(('jpg', 'jpeg', 'png')):
+                        img_path = os.path.join(root, file)
+                        img = cv2.imread(img_path)
+                        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-                    # Store the encoding and the name
-                    self.known_face_encodings.append(img_encoding)
-                    self.known_face_names.append(name)
-        print("Encoding images loaded")
+                        # Get the name of the person
+                        name = os.path.basename(root)
+
+                        # Encode the loaded image into a feature vector
+                        img_encoding = face_recognition.face_encodings(rgb_img)[0]
+
+                        # Store the encoding and the name
+                        self.known_face_encodings.append(img_encoding)
+                        self.known_face_names.append(name)
+            print("Encoding images loaded")
+
+            with open(encodings_file, "wb") as f:
+                data = {"encodings": self.known_face_encodings, "names": self.known_face_names}
+                pickle.dump(data, f)
+
 
     def detect_known_faces(self, frame):
         small_frame = cv2.resize(frame, (0, 0), fx=self.frame_resizing, fy=self.frame_resizing)
