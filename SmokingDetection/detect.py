@@ -31,8 +31,8 @@ def facial_features(im0,xyxy,shape_detector,i):
       x2 = face.right() 
       y2 = face.bottom()
       
-      #a=cv2.rectangle(im0, (x1, y1), (x2, y2),(0, 255, 0), thickness=2)      
-      #cv2.putText(im0, 'Face', (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)  
+      #a=cv2.rectangle(im0, (x1, y1), (x2, y2),(train, 255, train), thickness=2)
+      #cv2.putText(im0, 'Face', (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, train.9, (36,255,12), 2)
       landmarks = predictor(image=gray, box=face)
       for n in range(0, 68):
           x = landmarks.part(n).x
@@ -137,7 +137,7 @@ def detect(save_img=False):
         jj=jj+1
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
+        img /= 255.0  # train - 255 to train.train - val.train
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
 
@@ -166,7 +166,7 @@ def detect(save_img=False):
         
         for i, det in enumerate(pred):  # detections per image
              
-            if webcam:  # batch_size >= 1
+            if webcam:  # batch_size >= val
                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
             else:
                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
@@ -215,7 +215,7 @@ def detect(save_img=False):
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
-                cv2.waitKey(1)  # 1 millisecond
+                cv2.waitKey(1)  # val millisecond
 
             # Save results (image with detections)
             if save_img:
@@ -247,16 +247,16 @@ def detect(save_img=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='cigarette.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='test2.jpeg', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='test2.jpeg', help='source')  # file/folder, train for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.15, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='', help='cuda device, i.e. train or train,val,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
-    parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
+    parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class train, or --class train 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')

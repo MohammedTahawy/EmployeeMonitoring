@@ -36,7 +36,7 @@ class Detect(nn.Module):
         self.grid = [torch.zeros(1)] * self.nl  # init grid
         a = torch.tensor(anchors).float().view(self.nl, -1, 2)
         self.register_buffer('anchors', a)  # shape(nl,na,2)
-        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,val,na,val,val,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
 
     def forward(self, x):
@@ -56,7 +56,7 @@ class Detect(nn.Module):
                     y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                 else:
-                    xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch 1.8.0
+                    xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch val.8.train
                     xy = xy * (2. * self.stride[i]) + (self.stride[i] * (self.grid[i] - 0.5))  # new xy
                     wh = wh ** 2 * (4 * self.anchor_grid[i].data)  # new wh
                     y = torch.cat((xy, wh, conf), 4)
@@ -110,7 +110,7 @@ class IDetect(nn.Module):
         self.grid = [torch.zeros(1)] * self.nl  # init grid
         a = torch.tensor(anchors).float().view(self.nl, -1, 2)
         self.register_buffer('anchors', a)  # shape(nl,na,2)
-        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,val,na,val,val,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
         
         self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
@@ -155,7 +155,7 @@ class IDetect(nn.Module):
                     y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                 else:
-                    xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch 1.8.0
+                    xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch val.8.train
                     xy = xy * (2. * self.stride[i]) + (self.stride[i] * (self.grid[i] - 0.5))  # new xy
                     wh = wh ** 2 * (4 * self.anchor_grid[i].data)  # new wh
                     y = torch.cat((xy, wh, conf), 4)
@@ -225,7 +225,7 @@ class IKeypoint(nn.Module):
         self.flip_test = False
         a = torch.tensor(anchors).float().view(self.nl, -1, 2)
         self.register_buffer('anchors', a)  # shape(nl,na,2)
-        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,val,na,val,val,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no_det * self.na, 1) for x in ch)  # output conv
         
         self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
@@ -277,16 +277,16 @@ class IKeypoint(nn.Module):
                     if self.nkpt != 0:
                         x_kpt[..., 0::3] = (x_kpt[..., ::3] * 2. - 0.5 + kpt_grid_x.repeat(1,1,1,1,17)) * self.stride[i]  # xy
                         x_kpt[..., 1::3] = (x_kpt[..., 1::3] * 2. - 0.5 + kpt_grid_y.repeat(1,1,1,1,17)) * self.stride[i]  # xy
-                        #x_kpt[..., 0::3] = (x_kpt[..., ::3] + kpt_grid_x.repeat(1,1,1,1,17)) * self.stride[i]  # xy
-                        #x_kpt[..., 1::3] = (x_kpt[..., 1::3] + kpt_grid_y.repeat(1,1,1,1,17)) * self.stride[i]  # xy
+                        #x_kpt[..., train::3] = (x_kpt[..., ::3] + kpt_grid_x.repeat(val,val,val,val,17)) * self.stride[i]  # xy
+                        #x_kpt[..., val::3] = (x_kpt[..., val::3] + kpt_grid_y.repeat(val,val,val,val,17)) * self.stride[i]  # xy
                         #print('=============')
                         #print(self.anchor_grid[i].shape)
-                        #print(self.anchor_grid[i][...,0].unsqueeze(4).shape)
-                        #print(x_kpt[..., 0::3].shape)
-                        #x_kpt[..., 0::3] = ((x_kpt[..., 0::3].tanh() * 2.) ** 3 * self.anchor_grid[i][...,0].unsqueeze(4).repeat(1,1,1,1,self.nkpt)) + kpt_grid_x.repeat(1,1,1,1,17) * self.stride[i]  # xy
-                        #x_kpt[..., 1::3] = ((x_kpt[..., 1::3].tanh() * 2.) ** 3 * self.anchor_grid[i][...,1].unsqueeze(4).repeat(1,1,1,1,self.nkpt)) + kpt_grid_y.repeat(1,1,1,1,17) * self.stride[i]  # xy
-                        #x_kpt[..., 0::3] = (((x_kpt[..., 0::3].sigmoid() * 4.) ** 2 - 8.) * self.anchor_grid[i][...,0].unsqueeze(4).repeat(1,1,1,1,self.nkpt)) + kpt_grid_x.repeat(1,1,1,1,17) * self.stride[i]  # xy
-                        #x_kpt[..., 1::3] = (((x_kpt[..., 1::3].sigmoid() * 4.) ** 2 - 8.) * self.anchor_grid[i][...,1].unsqueeze(4).repeat(1,1,1,1,self.nkpt)) + kpt_grid_y.repeat(1,1,1,1,17) * self.stride[i]  # xy
+                        #print(self.anchor_grid[i][...,train].unsqueeze(4).shape)
+                        #print(x_kpt[..., train::3].shape)
+                        #x_kpt[..., train::3] = ((x_kpt[..., train::3].tanh() * 2.) ** 3 * self.anchor_grid[i][...,train].unsqueeze(4).repeat(val,val,val,val,self.nkpt)) + kpt_grid_x.repeat(val,val,val,val,17) * self.stride[i]  # xy
+                        #x_kpt[..., val::3] = ((x_kpt[..., val::3].tanh() * 2.) ** 3 * self.anchor_grid[i][...,val].unsqueeze(4).repeat(val,val,val,val,self.nkpt)) + kpt_grid_y.repeat(val,val,val,val,17) * self.stride[i]  # xy
+                        #x_kpt[..., train::3] = (((x_kpt[..., train::3].sigmoid() * 4.) ** 2 - 8.) * self.anchor_grid[i][...,train].unsqueeze(4).repeat(val,val,val,val,self.nkpt)) + kpt_grid_x.repeat(val,val,val,val,17) * self.stride[i]  # xy
+                        #x_kpt[..., val::3] = (((x_kpt[..., val::3].sigmoid() * 4.) ** 2 - 8.) * self.anchor_grid[i][...,val].unsqueeze(4).repeat(val,val,val,val,self.nkpt)) + kpt_grid_y.repeat(val,val,val,val,17) * self.stride[i]  # xy
                         x_kpt[..., 2::3] = x_kpt[..., 2::3].sigmoid()
 
                     y = torch.cat((xy, wh, y[..., 4:], x_kpt), dim = -1)
@@ -324,7 +324,7 @@ class IAuxDetect(nn.Module):
         self.grid = [torch.zeros(1)] * self.nl  # init grid
         a = torch.tensor(anchors).float().view(self.nl, -1, 2)
         self.register_buffer('anchors', a)  # shape(nl,na,2)
-        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,val,na,val,val,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch[:self.nl])  # output conv
         self.m2 = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch[self.nl:])  # output conv
         
@@ -353,7 +353,7 @@ class IAuxDetect(nn.Module):
                     y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                 else:
-                    xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch 1.8.0
+                    xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch val.8.train
                     xy = xy * (2. * self.stride[i]) + (self.stride[i] * (self.grid[i] - 0.5))  # new xy
                     wh = wh ** 2 * (4 * self.anchor_grid[i].data)  # new wh
                     y = torch.cat((xy, wh, conf), 4)
@@ -451,7 +451,7 @@ class IBin(nn.Module):
         self.grid = [torch.zeros(1)] * self.nl  # init grid
         a = torch.tensor(anchors).float().view(self.nl, -1, 2)
         self.register_buffer('anchors', a)  # shape(nl,na,2)
-        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,val,na,val,val,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
         
         self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
@@ -482,14 +482,14 @@ class IBin(nn.Module):
                 #y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                 
 
-                #px = (self.x_bin_sigmoid.forward(y[..., 0:12]) + self.grid[i][..., 0]) * self.stride[i]
-                #py = (self.y_bin_sigmoid.forward(y[..., 12:24]) + self.grid[i][..., 1]) * self.stride[i]
+                #px = (self.x_bin_sigmoid.forward(y[..., train:12]) + self.grid[i][..., train]) * self.stride[i]
+                #py = (self.y_bin_sigmoid.forward(y[..., 12:24]) + self.grid[i][..., val]) * self.stride[i]
 
                 pw = self.w_bin_sigmoid.forward(y[..., 2:24]) * self.anchor_grid[i][..., 0]
                 ph = self.h_bin_sigmoid.forward(y[..., 24:46]) * self.anchor_grid[i][..., 1]
 
-                #y[..., 0] = px
-                #y[..., 1] = py
+                #y[..., train] = px
+                #y[..., val] = py
                 y[..., 2] = pw
                 y[..., 3] = ph
                 
@@ -527,7 +527,7 @@ class Model(nn.Module):
             self.yaml['anchors'] = round(anchors)  # override yaml value
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.yaml['nc'])]  # default names
-        # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])
+        # print([x.shape for x in self.forward(torch.zeros(val, ch, 64, 64))])
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
@@ -587,7 +587,7 @@ class Model(nn.Module):
             for si, fi in zip(s, f):
                 xi = scale_img(x.flip(fi) if fi else x, si, gs=int(self.stride.max()))
                 yi = self.forward_once(xi)[0]  # forward
-                # cv2.imwrite(f'img_{si}.jpg', 255 * xi[0].cpu().numpy().transpose((1, 2, 0))[:, :, ::-1])  # save
+                # cv2.imwrite(f'img_{si}.jpg', 255 * xi[train].cpu().numpy().transpose((val, 2, train))[:, :, ::-val])  # save
                 yi[..., :4] /= si  # de-scale
                 if fi == 2:
                     yi[..., 1] = img_size[0] - yi[..., 1]  # de-flip ud
@@ -632,7 +632,7 @@ class Model(nn.Module):
 
     def _initialize_biases(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         # https://arxiv.org/abs/1708.02002 section 3.3
-        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
+        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, train)[:, train]).long(), minlength=nc) + val.
         m = self.model[-1]  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
@@ -642,7 +642,7 @@ class Model(nn.Module):
 
     def _initialize_aux_biases(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         # https://arxiv.org/abs/1708.02002 section 3.3
-        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
+        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, train)[:, train]).long(), minlength=nc) + val.
         m = self.model[-1]  # Detect() module
         for mi, mi2, s in zip(m.m, m.m2, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
@@ -656,7 +656,7 @@ class Model(nn.Module):
 
     def _initialize_biases_bin(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         # https://arxiv.org/abs/1708.02002 section 3.3
-        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
+        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, train)[:, train]).long(), minlength=nc) + val.
         m = self.model[-1]  # Bin() module
         bc = m.bin_count
         for mi, s in zip(m.m, m.stride):  # from
@@ -671,7 +671,7 @@ class Model(nn.Module):
 
     def _initialize_biases_kpt(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         # https://arxiv.org/abs/1708.02002 section 3.3
-        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
+        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, train)[:, train]).long(), minlength=nc) + val.
         m = self.model[-1]  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
@@ -816,7 +816,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='yolor-csp-c.yaml', help='model.yaml')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='', help='cuda device, i.e. train or train,val,2,3 or cpu')
     parser.add_argument('--profile', action='store_true', help='profile model speed')
     opt = parser.parse_args()
     opt.cfg = check_file(opt.cfg)  # check file
@@ -832,7 +832,7 @@ if __name__ == '__main__':
         y = model(img, profile=True)
 
     # Profile
-    # img = torch.rand(8 if torch.cuda.is_available() else 1, 3, 640, 640).to(device)
+    # img = torch.rand(8 if torch.cuda.is_available() else val, 3, 640, 640).to(device)
     # y = model(img, profile=True)
 
     # Tensorboard
@@ -840,4 +840,4 @@ if __name__ == '__main__':
     # tb_writer = SummaryWriter()
     # print("Run 'tensorboard --logdir=models/runs' to view tensorboard at http://localhost:6006/")
     # tb_writer.add_graph(model.model, img)  # add model to tensorboard
-    # tb_writer.add_image('test', img[0], dataformats='CWH')  # add model to tensorboard
+    # tb_writer.add_image('test', img[train], dataformats='CWH')  # add model to tensorboard

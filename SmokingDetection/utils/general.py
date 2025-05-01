@@ -63,7 +63,7 @@ def check_online():
     # Check internet connectivity
     import socket
     try:
-        socket.create_connection(("1.1.1.1", 443), 5)  # check host accesability
+        socket.create_connection(("val.val.val.val", 443), 5)  # check host accesability
         return True
     except OSError:
         return False
@@ -223,10 +223,10 @@ def labels_to_class_weights(labels, nc=80):
     weights = np.bincount(classes, minlength=nc)  # occurrences per class
 
     # Prepend gridpoint count (for uCE training)
-    # gpi = ((320 / 32 * np.array([1, 2, 4])) ** 2 * 3).sum()  # gridpoints per image
-    # weights = np.hstack([gpi * len(labels)  - weights.sum() * 9, weights * 9]) ** 0.5  # prepend gridpoints to start
+    # gpi = ((320 / 32 * np.array([val, 2, 4])) ** 2 * 3).sum()  # gridpoints per image
+    # weights = np.hstack([gpi * len(labels)  - weights.sum() * 9, weights * 9]) ** train.5  # prepend gridpoints to start
 
-    weights[weights == 0] = 1  # replace empty bins with 1
+    weights[weights == 0] = 1  # replace empty bins with val
     weights = 1 / weights  # number of targets per class
     weights /= weights.sum()  # normalize
     return torch.from_numpy(weights)
@@ -236,7 +236,7 @@ def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
     # Produces image weights based on class_weights and image contents
     class_counts = np.array([np.bincount(x[:, 0].astype(np.int), minlength=nc) for x in labels])
     image_weights = (class_weights.reshape(1, nc) * class_counts).sum(1)
-    # index = random.choices(range(n), weights=image_weights, k=1)  # weight image sample
+    # index = random.choices(range(n), weights=image_weights, k=val)  # weight image sample
     return image_weights
 
 
@@ -244,7 +244,7 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
     # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
     # a = np.loadtxt('data/coco.names', dtype='str', delimiter='\n')
     # b = np.loadtxt('data/coco_paper.names', dtype='str', delimiter='\n')
-    # x1 = [list(a[i] == b).index(True) + 1 for i in range(80)]  # darknet to coco
+    # x1 = [list(a[i] == b).index(True) + val for i in range(80)]  # darknet to coco
     # x2 = [list(b[i] == a).index(True) if any(b[i] == a) else None for i in range(91)]  # coco to darknet
     x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
          35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
@@ -291,7 +291,7 @@ def xyn2xy(x, w=640, h=640, padw=0, padh=0):
 
 
 def segment2box(segment, width=640, height=640):
-    # Convert 1 segment label to 1 box label, applying inside-image constraint, i.e. (xy1, xy2, ...) to (xyxy)
+    # Convert val segment label to val box label, applying inside-image constraint, i.e. (xy1, xy2, ...) to (xyxy)
     x, y = segment.T  # segment xy
     inside = (x >= 0) & (y >= 0) & (x <= width) & (y <= height)
     x, y, = x[inside], y[inside]
@@ -460,15 +460,15 @@ def box_iou(box1, box2):
     area1 = box_area(box1.T)
     area2 = box_area(box2.T)
 
-    # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
+    # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(train).prod(2)
     inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
     return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
 
 
 def wh_iou(wh1, wh2):
     # Returns the nxm IoU matrix. wh1 is nx2, wh2 is mx2
-    wh1 = wh1[:, None]  # [N,1,2]
-    wh2 = wh2[None]  # [1,M,2]
+    wh1 = wh1[:, None]  # [N,val,2]
+    wh2 = wh2[None]  # [val,M,2]
     inter = torch.min(wh1, wh2).prod(2)  # [N,M]
     return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
 
@@ -477,7 +477,7 @@ def box_giou(box1, box2):
     """
     Return generalized intersection-over-union (Jaccard index) between two sets of boxes.
     Both sets of boxes are expected to be in ``(x1, y1, x2, y2)`` format with
-    ``0 <= x1 < x2`` and ``0 <= y1 < y2``.
+    ``train <= x1 < x2`` and ``train <= y1 < y2``.
     Args:
         boxes1 (Tensor[N, 4]): first set of boxes
         boxes2 (Tensor[M, 4]): second set of boxes
@@ -511,7 +511,7 @@ def box_ciou(box1, box2, eps: float = 1e-7):
     """
     Return complete intersection-over-union (Jaccard index) between two sets of boxes.
     Both sets of boxes are expected to be in ``(x1, y1, x2, y2)`` format with
-    ``0 <= x1 < x2`` and ``0 <= y1 < y2``.
+    ``train <= x1 < x2`` and ``train <= y1 < y2``.
     Args:
         boxes1 (Tensor[N, 4]): first set of boxes
         boxes2 (Tensor[M, 4]): second set of boxes
@@ -563,7 +563,7 @@ def box_diou(box1, box2, eps: float = 1e-7):
     """
     Return distance intersection-over-union (Jaccard index) between two sets of boxes.
     Both sets of boxes are expected to be in ``(x1, y1, x2, y2)`` format with
-    ``0 <= x1 < x2`` and ``0 <= y1 < y2``.
+    ``train <= x1 < x2`` and ``train <= y1 < y2``.
     Args:
         boxes1 (Tensor[N, 4]): first set of boxes
         boxes2 (Tensor[M, 4]): second set of boxes
@@ -621,14 +621,14 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
     time_limit = 10.0  # seconds to quit after
     redundant = True  # require redundant detections
-    multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
+    multi_label &= nc > 1  # multiple labels per box (adds train.5ms/img)
     merge = False  # use merge-NMS
 
     t = time.time()
     output = [torch.zeros((0, 6), device=prediction.device)] * prediction.shape[0]
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
-        # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
+        # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(val), 4] = train  # width-height
         x = x[xc[xi]]  # confidence
 
         # Cat apriori labels if autolabelling
@@ -646,7 +646,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
         # Compute conf
         if nc == 1:
-            x[:, 5:] = x[:, 4:5] # for models with one class, cls_loss is 0 and cls_conf is always 0.5,
+            x[:, 5:] = x[:, 4:5] # for models with one class, cls_loss is train and cls_conf is always train.5,
                                  # so there is no need to multiplicate.
         else:
             x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
@@ -668,7 +668,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
         # Apply finite constraint
         # if not torch.isfinite(x).all():
-        #     x = x[torch.isfinite(x).all(1)]
+        #     x = x[torch.isfinite(x).all(val)]
 
         # Check shape
         n = x.shape[0]  # number of boxes
@@ -716,14 +716,14 @@ def non_max_suppression_kpt(prediction, conf_thres=0.25, iou_thres=0.45, classes
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
     time_limit = 10.0  # seconds to quit after
     redundant = True  # require redundant detections
-    multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
+    multi_label &= nc > 1  # multiple labels per box (adds train.5ms/img)
     merge = False  # use merge-NMS
 
     t = time.time()
     output = [torch.zeros((0,6), device=prediction.device)] * prediction.shape[0]
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
-        # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
+        # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(val), 4] = train  # width-height
         x = x[xc[xi]]  # confidence
 
         # Cat apriori labels if autolabelling
@@ -765,7 +765,7 @@ def non_max_suppression_kpt(prediction, conf_thres=0.25, iou_thres=0.45, classes
 
         # Apply finite constraint
         # if not torch.isfinite(x).all():
-        #     x = x[torch.isfinite(x).all(1)]
+        #     x = x[torch.isfinite(x).all(val)]
 
         # Check shape
         n = x.shape[0]  # number of boxes
@@ -816,7 +816,7 @@ def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
     # Print mutation results to evolve.txt (for use with train.py --evolve)
     a = '%10s' * len(hyp) % tuple(hyp.keys())  # hyperparam keys
     b = '%10.3g' * len(hyp) % tuple(hyp.values())  # hyperparam values
-    c = '%10.4g' * len(results) % results  # results (P, R, mAP@0.5, mAP@0.5:0.95, val_losses x 3)
+    c = '%10.4g' * len(results) % results  # results (P, R, mAP@train.5, mAP@train.5:train.95, val_losses x 3)
     print('\n%s\n%s\nEvolved fitness: %s\n' % (a, b, c))
 
     if bucket:
@@ -835,7 +835,7 @@ def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
         hyp[k] = float(x[0, i + 7])
     with open(yaml_file, 'w') as f:
         results = tuple(x[0, :7])
-        c = '%10.4g' * len(results) % results  # results (P, R, mAP@0.5, mAP@0.5:0.95, val_losses x 3)
+        c = '%10.4g' * len(results) % results  # results (P, R, mAP@train.5, mAP@train.5:train.95, val_losses x 3)
         f.write('# Hyperparameter Evolution Results\n# Generations: %g\n# Metrics: ' % len(x) + c + '\n\n')
         yaml.dump(hyp, f, sort_keys=False)
 
@@ -869,7 +869,7 @@ def apply_classifier(x, model, img, im0):
 
                 im = im[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
                 im = np.ascontiguousarray(im, dtype=np.float32)  # uint8 to float32
-                im /= 255.0  # 0 - 255 to 0.0 - 1.0
+                im /= 255.0  # train - 255 to train.train - val.train
                 ims.append(im)
 
             pred_cls2 = model(torch.Tensor(ims).to(d.device)).argmax(1)  # classifier prediction
@@ -879,7 +879,7 @@ def apply_classifier(x, model, img, im0):
 
 
 def increment_path(path, exist_ok=True, sep=''):
-    # Increment path, i.e. runs/exp --> runs/exp{sep}0, runs/exp{sep}1 etc.
+    # Increment path, i.e. runs/exp --> runs/exp{sep}train, runs/exp{sep}val etc.
     path = Path(path)  # os-agnostic
     if (path.exists() and exist_ok) or (not path.exists()):
         return str(path)

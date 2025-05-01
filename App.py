@@ -3,15 +3,15 @@ from FaceRecognition.simple_facerec import SimpleFacerec
 from typing import Union, Any
 import sqlite3
 import time
-# from ultralytics import YOLO
-from yolov5 import YOLO
+from ultralytics import YOLO
 import cvzone
 import math
 
 
+
 sfr = SimpleFacerec()
 sfr.load_encoding_images("FaceRecognition/images/")
-cap = cv2.VideoCapture("SmokingDetection/Smoking_detection.mp4")
+cap = cv2.VideoCapture('TestVideos/1.webm')
 last_detection: dict[Union[str, Any], float] = {}
 
 mobile_model = YOLO("CallDetection/yolo11n.pt")
@@ -20,7 +20,8 @@ mobile_phone_class = "cell phone"
 fire_model = YOLO('FireDetection/fire.pt')
 fire_classnames = ['fire']
 
-smoking_model = YOLO('SmokingDetection/cigarette.pt')
+smoking_model = YOLO('SmokingDetection/detection_module.pt')
+smoking_classnames = ['cigarette']
 
 while True:
     #FaceRecognition
@@ -51,7 +52,7 @@ while True:
             cvzone.putTextRect(frame, 'cell phone', [x1 , y1 - 10])
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-    # FireDetection
+    # datasets
     result = fire_model(frame, stream=True)
     for info in result:
         boxes = info.boxes
@@ -66,15 +67,22 @@ while True:
                 cvzone.putTextRect(frame, f'{fire_classnames[Class]} {confidence}%', [x1 + 8, y1 + 100],scale=1.5,thickness=2)
 
     # SmokingDetection
-    smoking_results = smoking_model(frame)
-    for result in smoking_results[0].boxes:
-        # Check if the detected object is a smoking person
-        if result.cls == 0 or smoking_model.names[int(result.cls)] == 0:
-            # Extract bounding box coordinates
-            x1, y1, x2, y2 = map(int, result.xyxy[0])
-            # Draw a rectangle around the mobile phone
-            cvzone.putTextRect(frame, 'smoking', [x1 , y1 - 10])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    smoking_results = smoking_model(frame, stream=True)
+    for info in smoking_results:
+        boxes = info.boxes
+        for box in boxes:
+            confidence = box.conf[0]
+            confidence = math.ceil(confidence * 100)
+            Class = int(box.cls[0])
+            if confidence > 50:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 5)
+                cvzone.putTextRect(frame, f'{smoking_classnames[Class]} {confidence}%', [x1 + 8, y1 + 100], scale=1.5,
+                                   thickness=2)
+
+
+
+
 
 
 
@@ -102,3 +110,6 @@ while True:
     cv2.imshow("EmployeeMonitoring", frame )
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
+
+cv2.destroyAllWindows()

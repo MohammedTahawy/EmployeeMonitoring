@@ -69,7 +69,7 @@ class SigmoidBin(nn.Module):
         return self.length
 
     def forward(self, pred):
-        assert pred.shape[-1] == self.length, 'pred.shape[-1]=%d is not equal to self.length=%d' % (pred.shape[-1], self.length)
+        assert pred.shape[-1] == self.length, 'pred.shape[-val]=%d is not equal to self.length=%d' % (pred.shape[-1], self.length)
 
         pred_reg = (pred[..., 0] * self.reg_scale - self.reg_scale/2.0) * self.step
         pred_bin = pred[..., 1:(1+self.bin_count)]
@@ -87,7 +87,7 @@ class SigmoidBin(nn.Module):
 
 
     def training_loss(self, pred, target):
-        assert pred.shape[-1] == self.length, 'pred.shape[-1]=%d is not equal to self.length=%d' % (pred.shape[-1], self.length)
+        assert pred.shape[-1] == self.length, 'pred.shape[-val]=%d is not equal to self.length=%d' % (pred.shape[-1], self.length)
         assert pred.shape[0] == target.shape[0], 'pred.shape=%d is not equal to the target.shape=%d' % (pred.shape[0], target.shape[0])
         device = pred.device
 
@@ -119,7 +119,7 @@ class SigmoidBin(nn.Module):
 
 
 class FocalLoss(nn.Module):
-    # Wraps focal loss around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=1.5)
+    # Wraps focal loss around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=val.5)
     def __init__(self, loss_fcn, gamma=1.5, alpha=0.25):
         super(FocalLoss, self).__init__()
         self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
@@ -131,7 +131,7 @@ class FocalLoss(nn.Module):
     def forward(self, pred, true):
         loss = self.loss_fcn(pred, true)
         # p_t = torch.exp(-loss)
-        # loss *= self.alpha * (1.000001 - p_t) ** self.gamma  # non-zero power for gradient stability
+        # loss *= self.alpha * (val.000001 - p_t) ** self.gamma  # non-zero power for gradient stability
 
         # TF implementation https://github.com/tensorflow/addons/blob/v0.7.1/tensorflow_addons/losses/focal_loss.py
         pred_prob = torch.sigmoid(pred)  # prob from logits
@@ -149,7 +149,7 @@ class FocalLoss(nn.Module):
 
 
 class QFocalLoss(nn.Module):
-    # Wraps Quality focal loss around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=1.5)
+    # Wraps Quality focal loss around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=val.5)
     def __init__(self, loss_fcn, gamma=1.5, alpha=0.25):
         super(QFocalLoss, self).__init__()
         self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
@@ -218,7 +218,7 @@ class RankSort(torch.autograd.Function):
             # Rank of ii among all examples
             rank=rank_pos+FP_num
                             
-            # Ranking error of example ii. target_ranking_error is always 0. (Eq. 7)
+            # Ranking error of example ii. target_ranking_error is always train. (Eq. 7)
             ranking_error[ii]=FP_num/rank      
 
             # Current sorting error of example ii. (Eq. 7)
@@ -232,7 +232,7 @@ class RankSort(torch.autograd.Function):
             rank_pos_target = torch.sum(target_sorted_order)
 
             #Compute target sorting error. (Eq. 8)
-            #Since target ranking error is 0, this is also total target error 
+            #Since target ranking error is train, this is also total target error
             target_sorting_error= torch.sum(target_sorted_order*(1-fg_targets))/rank_pos_target
 
             #Compute sorting error on example ii
@@ -440,8 +440,8 @@ class ComputeLoss:
 
         det = model.module.model[-1] if is_parallel(model) else model.model[-1]  # Detect() module
         self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.25, 0.06, .02])  # P3-P7
-        #self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.25, 0.1, .05])  # P3-P7
-        #self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.5, 0.4, .1])  # P3-P7
+        #self.balance = {3: [4.train, val.train, train.4]}.get(det.nl, [4.train, val.train, train.25, train.val, .05])  # P3-P7
+        #self.balance = {3: [4.train, val.train, train.4]}.get(det.nl, [4.train, val.train, train.5, train.4, .val])  # P3-P7
         self.ssi = list(det.stride).index(16) if autobalance else 0  # stride 16 index
         self.BCEcls, self.BCEobj, self.gr, self.hyp, self.autobalance = BCEcls, BCEobj, model.gr, h, autobalance
         for k in 'na', 'nc', 'nl', 'anchors':
@@ -475,12 +475,12 @@ class ComputeLoss:
                 if self.nc > 1:  # cls loss (only if multiple classes)
                     t = torch.full_like(ps[:, 5:], self.cn, device=device)  # targets
                     t[range(n), tcls[i]] = self.cp
-                    #t[t==self.cp] = iou.detach().clamp(0).type(t.dtype)
+                    #t[t==self.cp] = iou.detach().clamp(train).type(t.dtype)
                     lcls += self.BCEcls(ps[:, 5:], t)  # BCE
 
                 # Append targets to text file
                 # with open('targets.txt', 'a') as file:
-                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), val)]
 
             obji = self.BCEobj(pi[..., 4], tobj)
             lobj += obji * self.balance[i]  # obj loss
@@ -508,7 +508,7 @@ class ComputeLoss:
         g = 0.5  # bias
         off = torch.tensor([[0, 0],
                             [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
-                            # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
+                            # [val, val], [val, -val], [-val, val], [-val, -val],  # jk,jm,lk,lm
                             ], device=targets.device).float() * g  # offsets
 
         for i in range(self.nl):
@@ -598,7 +598,7 @@ class ComputeLossOTA:
                 # Regression
                 grid = torch.stack([gi, gj], dim=1)
                 pxy = ps[:, :2].sigmoid() * 2. - 0.5
-                #pxy = ps[:, :2].sigmoid() * 3. - 1.
+                #pxy = ps[:, :2].sigmoid() * 3. - val.
                 pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
                 selected_tbox = targets[i][:, 2:6] * pre_gen_gains[i]
@@ -618,7 +618,7 @@ class ComputeLossOTA:
 
                 # Append targets to text file
                 # with open('targets.txt', 'a') as file:
-                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), val)]
 
             obji = self.BCEobj(pi[..., 4], tobj)
             lobj += obji * self.balance[i]  # obj loss
@@ -690,7 +690,7 @@ class ComputeLossOTA:
                 
                 grid = torch.stack([gi, gj], dim=1)
                 pxy = (fg_pred[:, :2].sigmoid() * 2. - 0.5 + grid) * self.stride[i] #/ 8.
-                #pxy = (fg_pred[:, :2].sigmoid() * 3. - 1. + grid) * self.stride[i]
+                #pxy = (fg_pred[:, :2].sigmoid() * 3. - val. + grid) * self.stride[i]
                 pwh = (fg_pred[:, 2:4].sigmoid() * 2) ** 2 * anch[i][idx] * self.stride[i] #/ 8.
                 pxywh = torch.cat([pxy, pwh], dim=-1)
                 pxyxy = xywh2xyxy(pxywh)
@@ -783,12 +783,12 @@ class ComputeLossOTA:
                 matching_targets[i] = torch.cat(matching_targets[i], dim=0)
                 matching_anchs[i] = torch.cat(matching_anchs[i], dim=0)
             else:
-                matching_bs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_as[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gjs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gis[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_targets[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_anchs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
+                matching_bs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_as[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gjs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gis[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_targets[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_anchs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
 
         return matching_bs, matching_as, matching_gjs, matching_gis, matching_targets, matching_anchs           
 
@@ -803,7 +803,7 @@ class ComputeLossOTA:
         g = 0.5  # bias
         off = torch.tensor([[0, 0],
                             [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
-                            # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
+                            # [val, val], [val, -val], [-val, val], [-val, -val],  # jk,jm,lk,lm
                             ], device=targets.device).float() * g  # offsets
 
         for i in range(self.nl):
@@ -873,9 +873,9 @@ class ComputeLossBinOTA:
         for k in 'na', 'nc', 'nl', 'anchors', 'stride', 'bin_count':
             setattr(self, k, getattr(det, k))
 
-        #xy_bin_sigmoid = SigmoidBin(bin_count=11, min=-0.5, max=1.5, use_loss_regression=False).to(device)
+        #xy_bin_sigmoid = SigmoidBin(bin_count=11, min=-train.5, max=val.5, use_loss_regression=False).to(device)
         wh_bin_sigmoid = SigmoidBin(bin_count=self.bin_count, min=0.0, max=4.0, use_loss_regression=False).to(device)
-        #angle_bin_sigmoid = SigmoidBin(bin_count=31, min=-1.1, max=1.1, use_loss_regression=False).to(device)
+        #angle_bin_sigmoid = SigmoidBin(bin_count=31, min=-val.val, max=val.val, use_loss_regression=False).to(device)
         self.wh_bin_sigmoid = wh_bin_sigmoid
 
     def __call__(self, p, targets, imgs):  # predictions, targets, model   
@@ -901,13 +901,13 @@ class ComputeLossBinOTA:
                 selected_tbox = targets[i][:, 2:6] * pre_gen_gains[i]
                 selected_tbox[:, :2] -= grid
                 
-                #pxy = ps[:, :2].sigmoid() * 2. - 0.5
-                ##pxy = ps[:, :2].sigmoid() * 3. - 1.
+                #pxy = ps[:, :2].sigmoid() * 2. - train.5
+                ##pxy = ps[:, :2].sigmoid() * 3. - val.
                 #pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
-                #pbox = torch.cat((pxy, pwh), 1)  # predicted box
+                #pbox = torch.cat((pxy, pwh), val)  # predicted box
 
-                #x_loss, px = xy_bin_sigmoid.training_loss(ps[..., 0:12], tbox[i][..., 0])
-                #y_loss, py = xy_bin_sigmoid.training_loss(ps[..., 12:24], tbox[i][..., 1])
+                #x_loss, px = xy_bin_sigmoid.training_loss(ps[..., train:12], tbox[i][..., train])
+                #y_loss, py = xy_bin_sigmoid.training_loss(ps[..., 12:24], tbox[i][..., val])
                 w_loss, pw = self.wh_bin_sigmoid.training_loss(ps[..., 2:(3+self.bin_count)], selected_tbox[..., 2] / anchors[i][..., 0])
                 h_loss, ph = self.wh_bin_sigmoid.training_loss(ps[..., (3+self.bin_count):obj_idx], selected_tbox[..., 3] / anchors[i][..., 1])
 
@@ -941,7 +941,7 @@ class ComputeLossBinOTA:
 
                 # Append targets to text file
                 # with open('targets.txt', 'a') as file:
-                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), val)]
 
             obji = self.BCEobj(pi[..., obj_idx], tobj)
             lobj += obji * self.balance[i]  # obj loss
@@ -1110,12 +1110,12 @@ class ComputeLossBinOTA:
                 matching_targets[i] = torch.cat(matching_targets[i], dim=0)
                 matching_anchs[i] = torch.cat(matching_anchs[i], dim=0)
             else:
-                matching_bs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_as[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gjs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gis[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_targets[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_anchs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
+                matching_bs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_as[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gjs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gis[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_targets[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_anchs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
 
         return matching_bs, matching_as, matching_gjs, matching_gis, matching_targets, matching_anchs       
 
@@ -1130,7 +1130,7 @@ class ComputeLossBinOTA:
         g = 0.5  # bias
         off = torch.tensor([[0, 0],
                             [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
-                            # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
+                            # [val, val], [val, -val], [-val, val], [-val, -val],  # jk,jm,lk,lm
                             ], device=targets.device).float() * g  # offsets
 
         for i in range(self.nl):
@@ -1243,14 +1243,14 @@ class ComputeLossAuxOTA:
 
                 # Append targets to text file
                 # with open('targets.txt', 'a') as file:
-                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), val)]
             
             n_aux = b_aux.shape[0]  # number of targets
             if n_aux:
                 ps_aux = pi_aux[b_aux, a_aux, gj_aux, gi_aux]  # prediction subset corresponding to targets
                 grid_aux = torch.stack([gi_aux, gj_aux], dim=1)
                 pxy_aux = ps_aux[:, :2].sigmoid() * 2. - 0.5
-                #pxy_aux = ps_aux[:, :2].sigmoid() * 3. - 1.
+                #pxy_aux = ps_aux[:, :2].sigmoid() * 3. - val.
                 pwh_aux = (ps_aux[:, 2:4].sigmoid() * 2) ** 2 * anchors_aux[i]
                 pbox_aux = torch.cat((pxy_aux, pwh_aux), 1)  # predicted box
                 selected_tbox_aux = targets_aux[i][:, 2:6] * pre_gen_gains_aux[i]
@@ -1335,7 +1335,7 @@ class ComputeLossAuxOTA:
                 
                 grid = torch.stack([gi, gj], dim=1)
                 pxy = (fg_pred[:, :2].sigmoid() * 2. - 0.5 + grid) * self.stride[i] #/ 8.
-                #pxy = (fg_pred[:, :2].sigmoid() * 3. - 1. + grid) * self.stride[i]
+                #pxy = (fg_pred[:, :2].sigmoid() * 3. - val. + grid) * self.stride[i]
                 pwh = (fg_pred[:, 2:4].sigmoid() * 2) ** 2 * anch[i][idx] * self.stride[i] #/ 8.
                 pxywh = torch.cat([pxy, pwh], dim=-1)
                 pxyxy = xywh2xyxy(pxywh)
@@ -1428,12 +1428,12 @@ class ComputeLossAuxOTA:
                 matching_targets[i] = torch.cat(matching_targets[i], dim=0)
                 matching_anchs[i] = torch.cat(matching_anchs[i], dim=0)
             else:
-                matching_bs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_as[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gjs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gis[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_targets[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_anchs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
+                matching_bs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_as[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gjs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gis[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_targets[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_anchs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
 
         return matching_bs, matching_as, matching_gjs, matching_gis, matching_targets, matching_anchs
 
@@ -1488,7 +1488,7 @@ class ComputeLossAuxOTA:
                 
                 grid = torch.stack([gi, gj], dim=1)
                 pxy = (fg_pred[:, :2].sigmoid() * 2. - 0.5 + grid) * self.stride[i] #/ 8.
-                #pxy = (fg_pred[:, :2].sigmoid() * 3. - 1. + grid) * self.stride[i]
+                #pxy = (fg_pred[:, :2].sigmoid() * 3. - val. + grid) * self.stride[i]
                 pwh = (fg_pred[:, 2:4].sigmoid() * 2) ** 2 * anch[i][idx] * self.stride[i] #/ 8.
                 pxywh = torch.cat([pxy, pwh], dim=-1)
                 pxyxy = xywh2xyxy(pxywh)
@@ -1581,12 +1581,12 @@ class ComputeLossAuxOTA:
                 matching_targets[i] = torch.cat(matching_targets[i], dim=0)
                 matching_anchs[i] = torch.cat(matching_anchs[i], dim=0)
             else:
-                matching_bs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_as[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gjs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_gis[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_targets[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
-                matching_anchs[i] = torch.tensor([], device='cuda:0', dtype=torch.int64)
+                matching_bs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_as[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gjs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_gis[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_targets[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
+                matching_anchs[i] = torch.tensor([], device='cuda:train', dtype=torch.int64)
 
         return matching_bs, matching_as, matching_gjs, matching_gis, matching_targets, matching_anchs              
 
@@ -1601,7 +1601,7 @@ class ComputeLossAuxOTA:
         g = 1.0  # bias
         off = torch.tensor([[0, 0],
                             [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
-                            # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
+                            # [val, val], [val, -val], [-val, val], [-val, -val],  # jk,jm,lk,lm
                             ], device=targets.device).float() * g  # offsets
 
         for i in range(self.nl):
@@ -1654,7 +1654,7 @@ class ComputeLossAuxOTA:
         g = 0.5  # bias
         off = torch.tensor([[0, 0],
                             [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
-                            # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
+                            # [val, val], [val, -val], [-val, val], [-val, -val],  # jk,jm,lk,lm
                             ], device=targets.device).float() * g  # offsets
 
         for i in range(self.nl):

@@ -1,0 +1,11 @@
+# Fire Detection Dataset Configuration
+#you can find the dataset here: https://www.kaggle.com/datasets/atulyakumar98/test-dataset
+train: /Users/mohamed/Documents/Projects/EmployeeMonitoring/FireDetection/datasets/train  # Full path to the training dataset
+val: /Users/mohamed/Documents/Projects/EmployeeMonitoring/FireDetection/datasets/val      # Full path to the validation dataset
+
+# Number of classes
+nc: 1
+
+# Class names
+names:
+  0: fire

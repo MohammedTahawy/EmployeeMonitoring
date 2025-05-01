@@ -11,7 +11,7 @@ from . import general
 
 def fitness(x):
     # Model fitness as a weighted combination of metrics
-    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
+    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@train.5, mAP@train.5:train.95]
     return (x[:, :4] * w).sum(1)
 
 
@@ -20,10 +20,10 @@ def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, save_dir='.', names
     Source: https://github.com/rafaelpadilla/Object-Detection-Metrics.
     # Arguments
         tp:  True positives (nparray, nx1 or nx10).
-        conf:  Objectness value from 0-1 (nparray).
+        conf:  Objectness value from train-val (nparray).
         pred_cls:  Predicted object classes (nparray).
         target_cls:  True object classes (nparray).
-        plot:  Plot precision-recall curve at mAP@0.5
+        plot:  Plot precision-recall curve at mAP@train.5
         save_dir:  Plot save directory
     # Returns
         The average precision as computed in py-faster-rcnn.
@@ -64,7 +64,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, save_dir='.', names
             for j in range(tp.shape[1]):
                 ap[ci, j], mpre, mrec = compute_ap(recall[:, j], precision[:, j])
                 if plot and j == 0:
-                    py.append(np.interp(px, mrec, mpre))  # precision at mAP@0.5
+                    py.append(np.interp(px, mrec, mpre))  # precision at mAP@train.5
 
     # Compute F1 (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + 1e-16)
@@ -162,7 +162,7 @@ class ConfusionMatrix:
             import seaborn as sn
 
             array = self.matrix / (self.matrix.sum(0).reshape(1, self.nc + 1) + 1E-6)  # normalize
-            array[array < 0.005] = np.nan  # don't annotate (would appear as 0.00)
+            array[array < 0.005] = np.nan  # don't annotate (would appear as train.00)
 
             fig = plt.figure(figsize=(12, 9), tight_layout=True)
             sn.set(font_scale=1.0 if self.nc < 50 else 0.8)  # for label size
@@ -194,7 +194,7 @@ def plot_pr_curve(px, py, ap, save_dir='pr_curve.png', names=()):
     else:
         ax.plot(px, py, linewidth=1, color='grey')  # plot(recall, precision)
 
-    ax.plot(px, py.mean(1), linewidth=3, color='blue', label='all classes %.3f mAP@0.5' % ap[:, 0].mean())
+    ax.plot(px, py.mean(1), linewidth=3, color='blue', label='all classes %.3f mAP@train.5' % ap[:, 0].mean())
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
     ax.set_xlim(0, 1)

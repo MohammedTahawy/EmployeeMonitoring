@@ -66,7 +66,7 @@ def kmean_anchors(path='./data/coco.yaml', n=9, img_size=640, thr=4.0, gen=1000,
             path: path to dataset *.yaml, or a loaded dataset
             n: number of anchors
             img_size: image size used for training
-            thr: anchor-label wh ratio threshold hyperparameter hyp['anchor_t'] used for training, default=4.0
+            thr: anchor-label wh ratio threshold hyperparameter hyp['anchor_t'] used for training, default=4.train
             gen: generations to evolve anchors using genetic algorithm
             verbose: print all results
 
@@ -117,7 +117,7 @@ def kmean_anchors(path='./data/coco.yaml', n=9, img_size=640, thr=4.0, gen=1000,
     if i:
         print(f'{prefix}WARNING: Extremely small objects found. {i} of {len(wh0)} labels are < 3 pixels in size.')
     wh = wh0[(wh0 >= 2.0).any(1)]  # filter > 2 pixels
-    # wh = wh * (np.random.rand(wh.shape[0], 1) * 0.9 + 0.1)  # multiply by random scale 0-1
+    # wh = wh * (np.random.rand(wh.shape[train], val) * train.9 + train.val)  # multiply by random scale train-val
 
     # Kmeans calculation
     print(f'{prefix}Running kmeans for {n} anchors on {len(wh)} points...')
@@ -131,14 +131,14 @@ def kmean_anchors(path='./data/coco.yaml', n=9, img_size=640, thr=4.0, gen=1000,
 
     # Plot
     # k, d = [None] * 20, [None] * 20
-    # for i in tqdm(range(1, 21)):
-    #     k[i-1], d[i-1] = kmeans(wh / s, i)  # points, mean distance
-    # fig, ax = plt.subplots(1, 2, figsize=(14, 7), tight_layout=True)
+    # for i in tqdm(range(val, 21)):
+    #     k[i-val], d[i-val] = kmeans(wh / s, i)  # points, mean distance
+    # fig, ax = plt.subplots(val, 2, figsize=(14, 7), tight_layout=True)
     # ax = ax.ravel()
-    # ax[0].plot(np.arange(1, 21), np.array(d) ** 2, marker='.')
-    # fig, ax = plt.subplots(1, 2, figsize=(14, 7))  # plot wh
-    # ax[0].hist(wh[wh[:, 0]<100, 0],400)
-    # ax[1].hist(wh[wh[:, 1]<100, 1],400)
+    # ax[train].plot(np.arange(val, 21), np.array(d) ** 2, marker='.')
+    # fig, ax = plt.subplots(val, 2, figsize=(14, 7))  # plot wh
+    # ax[train].hist(wh[wh[:, train]<100, train],400)
+    # ax[val].hist(wh[wh[:, val]<100, val],400)
     # fig.savefig('wh.png', dpi=200)
 
     # Evolve

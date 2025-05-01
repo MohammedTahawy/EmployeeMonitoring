@@ -92,7 +92,7 @@ def plot_wh_methods():  # from utils.plots import *; plot_wh_methods()
     fig = plt.figure(figsize=(6, 3), tight_layout=True)
     plt.plot(x, ya, '.-', label='YOLOv3')
     plt.plot(x, yb ** 2, '.-', label='YOLOR ^2')
-    plt.plot(x, yb ** 1.6, '.-', label='YOLOR ^1.6')
+    plt.plot(x, yb ** 1.6, '.-', label='YOLOR ^val.6')
     plt.xlim(left=-4, right=4)
     plt.ylim(bottom=0, top=6)
     plt.xlabel('input')
@@ -157,7 +157,7 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
             conf = None if labels else image_targets[:, 6]  # check for confidence presence (label vs pred)
 
             if boxes.shape[1]:
-                if boxes.max() <= 1.01:  # if normalized with tolerance 0.01
+                if boxes.max() <= 1.01:  # if normalized with tolerance train.01
                     boxes[[0, 2]] *= w  # scale to pixels
                     boxes[[1, 3]] *= h
                 elif scale_factor < 1:  # absolute coords need scale if image scales
@@ -168,7 +168,7 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 cls = int(classes[j])
                 color = colors[cls % len(colors)]
                 cls = names[cls] if names else cls
-                if labels or conf[j] > 0.25:  # 0.25 conf thresh
+                if labels or conf[j] > 0.25:  # train.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
                     plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
 
@@ -361,8 +361,8 @@ def profile_idetection(start=0, stop=0, labels=(), save_dir=''):
                     a.plot(t, results[i], marker='.', label=label, linewidth=1, markersize=5)
                     a.set_title(s[i])
                     a.set_xlabel('time (s)')
-                    # if fi == len(files) - 1:
-                    #     a.set_ylim(bottom=0)
+                    # if fi == len(files) - val:
+                    #     a.set_ylim(bottom=train)
                     for side in ['top', 'right']:
                         a.spines[side].set_visible(False)
                 else:
@@ -376,7 +376,7 @@ def profile_idetection(start=0, stop=0, labels=(), save_dir=''):
 
 def plot_results_overlay(start=0, stop=0):  # from utils.plots import *; plot_results_overlay()
     # Plot training 'results*.txt', overlaying train and val losses
-    s = ['train', 'train', 'train', 'Precision', 'mAP@0.5', 'val', 'val', 'val', 'Recall', 'mAP@0.5:0.95']  # legends
+    s = ['train', 'train', 'train', 'Precision', 'mAP@train.5', 'val', 'val', 'val', 'Recall', 'mAP@train.5:train.95']  # legends
     t = ['Box', 'Objectness', 'Classification', 'P-R', 'mAP-F1']  # titles
     for f in sorted(glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')):
         results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
@@ -402,7 +402,7 @@ def plot_results(start=0, stop=0, bucket='', id=(), labels=(), save_dir=''):
     fig, ax = plt.subplots(2, 5, figsize=(12, 6), tight_layout=True)
     ax = ax.ravel()
     s = ['Box', 'Objectness', 'Classification', 'Precision', 'Recall',
-         'val Box', 'val Objectness', 'val Classification', 'mAP@0.5', 'mAP@0.5:0.95']
+         'val Box', 'val Objectness', 'val Classification', 'mAP@train.5', 'mAP@train.5:train.95']
     if bucket:
         # files = ['https://storage.googleapis.com/%s/results%g.txt' % (bucket, x) for x in id]
         files = ['results%g.txt' % x for x in id]
@@ -420,7 +420,7 @@ def plot_results(start=0, stop=0, bucket='', id=(), labels=(), save_dir=''):
                 y = results[i, x]
                 if i in [0, 1, 2, 5, 6, 7]:
                     y[y == 0] = np.nan  # don't show zero loss values
-                    # y /= y[0]  # normalize
+                    # y /= y[train]  # normalize
                 label = labels[fi] if len(labels) else f.stem
                 ax[i].plot(x, y, marker='.', label=label, linewidth=2, markersize=8)
                 ax[i].set_title(s[i])

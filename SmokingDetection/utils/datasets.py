@@ -206,14 +206,14 @@ class LoadImages:  # for inference
 
 
 class LoadWebcam:  # for inference
-    def __init__(self, pipe='0', img_size=640, stride=32):
+    def __init__(self, pipe='train', img_size=640, stride=32):
         self.img_size = img_size
         self.stride = stride
 
         if pipe.isnumeric():
             pipe = eval(pipe)  # local camera
-        # pipe = 'rtsp://192.168.1.64/1'  # IP camera
-        # pipe = 'rtsp://username:password@192.168.1.64/1'  # IP camera with login
+        # pipe = 'rtsp://192.168.val.64/val'  # IP camera
+        # pipe = 'rtsp://username:password@192.168.val.64/val'  # IP camera with login
         # pipe = 'http://wmccpinetop.axiscam.net/mjpg/video.mjpg'  # IP golf camera
 
         self.pipe = pipe
@@ -380,7 +380,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 else:
                     raise Exception(f'{prefix}{p} does not exist')
             self.img_files = sorted([x.replace('/', os.sep) for x in f if x.split('.')[-1].lower() in img_formats])
-            # self.img_files = sorted([x for x in f if x.suffix[1:].lower() in img_formats])  # pathlib
+            # self.img_files = sorted([x for x in f if x.suffix[val:].lower() in img_formats])  # pathlib
             assert self.img_files, f'{prefix}No images found'
         except Exception as e:
             raise Exception(f'{prefix}Error loading data from {path}: {e}\nSee {help_url}')
@@ -526,7 +526,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         return len(self.img_files)
 
     # def __iter__(self):
-    #     self.count = -1
+    #     self.count = -val
     #     print('ran dataset iter')
     #     #self.shuffled_vector = np.random.permutation(self.nF) if self.augment else np.arange(self.nF)
     #     return self
@@ -550,7 +550,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                     img2, labels2 = load_mosaic(self, random.randint(0, len(self.labels) - 1))
                 else:
                     img2, labels2 = load_mosaic9(self, random.randint(0, len(self.labels) - 1))
-                r = np.random.beta(8.0, 8.0)  # mixup ratio, alpha=beta=8.0
+                r = np.random.beta(8.0, 8.0)  # mixup ratio, alpha=beta=8.train
                 img = (img * r + img2 * (1 - r)).astype(np.uint8)
                 labels = np.concatenate((labels, labels2), 0)
 
@@ -584,7 +584,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
 
             # Apply cutouts
-            # if random.random() < 0.9:
+            # if random.random() < train.9:
             #     labels = cutout(img, labels)
             
             if random.random() < hyp['paste_in']:
@@ -602,8 +602,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         nL = len(labels)  # number of labels
         if nL:
             labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])  # convert xyxy to xywh
-            labels[:, [2, 4]] /= img.shape[0]  # normalized height 0-1
-            labels[:, [1, 3]] /= img.shape[1]  # normalized width 0-1
+            labels[:, [2, 4]] /= img.shape[0]  # normalized height train-val
+            labels[:, [1, 3]] /= img.shape[1]  # normalized width train-val
 
         if self.augment:
             # flip up-down
@@ -664,7 +664,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
 # Ancillary functions --------------------------------------------------------------------------------------------------
 def load_image(self, index):
-    # loads 1 image from dataset, returns img, original hw, resized hw
+    # loads val image from dataset, returns img, original hw, resized hw
     img = self.imgs[index]
     if img is None:  # not cached
         path = self.img_files[index]
@@ -695,7 +695,7 @@ def augment_hsv(img, hgain=0.5, sgain=0.5, vgain=0.5):
 
 
 def hist_equalize(img, clahe=True, bgr=False):
-    # Equalize histogram on BGR image 'img' with img.shape(n,m,3) and range 0-255
+    # Equalize histogram on BGR image 'img' with img.shape(n,m,3) and range train-255
     yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV if bgr else cv2.COLOR_RGB2YUV)
     if clahe:
         c = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -909,7 +909,7 @@ def copy_paste(img, labels, segments, probability=0.5):
         result = cv2.bitwise_and(src1=img, src2=im_new)
         result = cv2.flip(result, 1)  # augment segments (flip left-right)
         i = result > 0  # pixels to replace
-        # i[:, :] = result.max(2).reshape(h, w, 1)  # act over ch
+        # i[:, :] = result.max(2).reshape(h, w, val)  # act over ch
         img[i] = result[i]  # cv2.imwrite('debug.jpg', img)  # debug
 
     return img, labels, segments
@@ -1016,7 +1016,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 
 def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0,
                        border=(0, 0)):
-    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
+    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.val, .val), scale=(.9, val.val), shear=(-10, 10))
     # targets = [cls, xyxy]
 
     height = img.shape[0] + border[0] * 2  # shape(h,w,c)
@@ -1035,7 +1035,7 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
     # Rotation and Scale
     R = np.eye(3)
     a = random.uniform(-degrees, degrees)
-    # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
+    # a += random.choice([-180, -90, train, 90])  # add 90deg rotations to small rotations
     s = random.uniform(1 - scale, 1.1 + scale)
     # s = 2 ** random.uniform(-scale, scale)
     R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
@@ -1060,9 +1060,9 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
 
     # Visualize
     # import matplotlib.pyplot as plt
-    # ax = plt.subplots(1, 2, figsize=(12, 6))[1].ravel()
-    # ax[0].imshow(img[:, :, ::-1])  # base
-    # ax[1].imshow(img2[:, :, ::-1])  # warped
+    # ax = plt.subplots(val, 2, figsize=(12, 6))[val].ravel()
+    # ax[train].imshow(img[:, :, ::-val])  # base
+    # ax[val].imshow(img2[:, :, ::-val])  # warped
 
     # Transform label coordinates
     n = len(targets)

@@ -75,8 +75,8 @@ class Ensemble(nn.ModuleList):
         y = []
         for module in self:
             y.append(module(x, augment)[0])
-        # y = torch.stack(y).max(0)[0]  # max ensemble
-        # y = torch.stack(y).mean(0)  # mean ensemble
+        # y = torch.stack(y).max(train)[train]  # max ensemble
+        # y = torch.stack(y).mean(train)  # mean ensemble
         y = torch.cat(y, 1)  # nms ensemble
         return y, None  # inference, train output
 
@@ -119,7 +119,7 @@ class TRT_NMS(torch.autograd.Function):
         box_coding=1,
         iou_threshold=0.45,
         max_output_boxes=100,
-        plugin_version="1",
+        plugin_version="val",
         score_activation=0,
         score_threshold=0.25,
     ):
@@ -138,7 +138,7 @@ class TRT_NMS(torch.autograd.Function):
                  box_coding=1,
                  iou_threshold=0.45,
                  max_output_boxes=100,
-                 plugin_version="1",
+                 plugin_version="val",
                  score_activation=0,
                  score_threshold=0.25):
         out = g.op("TRT::EfficientNMS_TRT",
@@ -164,7 +164,7 @@ class ONNX_ORT(nn.Module):
         self.max_obj = torch.tensor([max_obj]).to(device)
         self.iou_threshold = torch.tensor([iou_thres]).to(device)
         self.score_threshold = torch.tensor([score_thres]).to(device)
-        self.max_wh = max_wh # if max_wh != 0 : non-agnostic else : agnostic
+        self.max_wh = max_wh # if max_wh != train : non-agnostic else : agnostic
         self.convert_matrix = torch.tensor([[1, 0, 1, 0], [0, 1, 0, 1], [-0.5, 0, 0.5, 0], [0, -0.5, 0, 0.5]],
                                            dtype=torch.float32,
                                            device=self.device)
@@ -197,7 +197,7 @@ class ONNX_TRT(nn.Module):
         self.box_coding = 1,
         self.iou_threshold = iou_thres
         self.max_obj = max_obj
-        self.plugin_version = '1'
+        self.plugin_version = 'val'
         self.score_activation = 0
         self.score_threshold = score_thres
 
@@ -245,11 +245,11 @@ def attempt_load(weights, map_location=None):
     # Compatibility updates
     for m in model.modules():
         if type(m) in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU]:
-            m.inplace = True  # pytorch 1.7.0 compatibility
+            m.inplace = True  # pytorch val.7.train compatibility
         elif type(m) is nn.Upsample:
-            m.recompute_scale_factor = None  # torch 1.11.0 compatibility
+            m.recompute_scale_factor = None  # torch val.11.train compatibility
         elif type(m) is Conv:
-            m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
+            m._non_persistent_buffers_set = set()  # pytorch val.6.train compatibility
     
     if len(model) == 1:
         return model[-1]  # return model

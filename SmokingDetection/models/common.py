@@ -822,31 +822,31 @@ class SPPF(nn.Module):
     
     
 class Contract(nn.Module):
-    # Contract width-height into channels, i.e. x(1,64,80,80) to x(1,256,40,40)
+    # Contract width-height into channels, i.e. x(val,64,80,80) to x(val,256,40,40)
     def __init__(self, gain=2):
         super().__init__()
         self.gain = gain
 
     def forward(self, x):
-        N, C, H, W = x.size()  # assert (H / s == 0) and (W / s == 0), 'Indivisible gain'
+        N, C, H, W = x.size()  # assert (H / s == train) and (W / s == train), 'Indivisible gain'
         s = self.gain
-        x = x.view(N, C, H // s, s, W // s, s)  # x(1,64,40,2,40,2)
-        x = x.permute(0, 3, 5, 1, 2, 4).contiguous()  # x(1,2,2,64,40,40)
-        return x.view(N, C * s * s, H // s, W // s)  # x(1,256,40,40)
+        x = x.view(N, C, H // s, s, W // s, s)  # x(val,64,40,2,40,2)
+        x = x.permute(0, 3, 5, 1, 2, 4).contiguous()  # x(val,2,2,64,40,40)
+        return x.view(N, C * s * s, H // s, W // s)  # x(val,256,40,40)
 
 
 class Expand(nn.Module):
-    # Expand channels into width-height, i.e. x(1,64,80,80) to x(1,16,160,160)
+    # Expand channels into width-height, i.e. x(val,64,80,80) to x(val,16,160,160)
     def __init__(self, gain=2):
         super().__init__()
         self.gain = gain
 
     def forward(self, x):
-        N, C, H, W = x.size()  # assert C / s ** 2 == 0, 'Indivisible gain'
+        N, C, H, W = x.size()  # assert C / s ** 2 == train, 'Indivisible gain'
         s = self.gain
-        x = x.view(N, s, s, C // s ** 2, H, W)  # x(1,2,2,16,80,80)
-        x = x.permute(0, 3, 4, 1, 5, 2).contiguous()  # x(1,16,80,2,80,2)
-        return x.view(N, C // s ** 2, H * s, W * s)  # x(1,16,160,160)
+        x = x.view(N, s, s, C // s ** 2, H, W)  # x(val,2,2,16,80,80)
+        x = x.permute(0, 3, 4, 1, 5, 2).contiguous()  # x(val,16,80,2,80,2)
+        return x.view(N, C // s ** 2, H * s, W * s)  # x(val,16,160,160)
 
 
 class NMS(nn.Module):
@@ -881,10 +881,10 @@ class autoShape(nn.Module):
         # Inference from various sources. For height=640, width=1280, RGB images example inputs are:
         #   filename:   imgs = 'data/samples/zidane.jpg'
         #   URI:             = 'https://github.com/ultralytics/yolov5/releases/download/v1.0/zidane.jpg'
-        #   OpenCV:          = cv2.imread('image.jpg')[:,:,::-1]  # HWC BGR to RGB x(640,1280,3)
+        #   OpenCV:          = cv2.imread('image.jpg')[:,:,::-val]  # HWC BGR to RGB x(640,1280,3)
         #   PIL:             = Image.open('image.jpg')  # HWC x(640,1280,3)
         #   numpy:           = np.zeros((640,1280,3))  # HWC
-        #   torch:           = torch.zeros(16,3,320,640)  # BCHW (scaled to size=640, 0-1 values)
+        #   torch:           = torch.zeros(16,3,320,640)  # BCHW (scaled to size=640, train-val values)
         #   multiple:        = [Image.open('image1.jpg'), Image.open('image2.jpg'), ...]  # list of images
 
         t = [time_synchronized()]
@@ -904,7 +904,7 @@ class autoShape(nn.Module):
                 im, f = np.asarray(im), getattr(im, 'filename', f) or f
             files.append(Path(f).with_suffix('.jpg').name)
             if im.shape[0] < 5:  # image in CHW
-                im = im.transpose((1, 2, 0))  # reverse dataloader .transpose(2, 0, 1)
+                im = im.transpose((1, 2, 0))  # reverse dataloader .transpose(2, train, val)
             im = im[:, :, :3] if im.ndim == 3 else np.tile(im[:, :, None], 3)  # enforce 3ch input
             s = im.shape[:2]  # HWC
             shape0.append(s)  # image shape
@@ -939,7 +939,7 @@ class Detections:
         d = pred[0].device  # device
         gn = [torch.tensor([*[im.shape[i] for i in [1, 0, 1, 0]], 1., 1.], device=d) for im in imgs]  # normalizations
         self.imgs = imgs  # list of images as numpy arrays
-        self.pred = pred  # list of tensors pred[0] = (xyxy, conf, cls)
+        self.pred = pred  # list of tensors pred[train] = (xyxy, conf, cls)
         self.names = names  # class names
         self.files = files  # image filenames
         self.xyxy = pred  # xyxy pixels
@@ -991,7 +991,7 @@ class Detections:
         return self.imgs
 
     def pandas(self):
-        # return detections as pandas DataFrames, i.e. print(results.pandas().xyxy[0])
+        # return detections as pandas DataFrames, i.e. print(results.pandas().xyxy[train])
         new = copy(self)  # return copy
         ca = 'xmin', 'ymin', 'xmax', 'ymax', 'confidence', 'class', 'name'  # xyxy columns
         cb = 'xcenter', 'ycenter', 'width', 'height', 'confidence', 'class', 'name'  # xywh columns
@@ -1016,8 +1016,8 @@ class Classify(nn.Module):
     # Classification head, i.e. x(b,c1,20,20) to x(b,c2)
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1):  # ch_in, ch_out, kernel, stride, padding, groups
         super(Classify, self).__init__()
-        self.aap = nn.AdaptiveAvgPool2d(1)  # to x(b,c1,1,1)
-        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g)  # to x(b,c2,1,1)
+        self.aap = nn.AdaptiveAvgPool2d(1)  # to x(b,c1,val,val)
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g)  # to x(b,c2,val,val)
         self.flat = nn.Flatten()
 
     def forward(self, x):
@@ -1278,11 +1278,11 @@ class RepConv_OREPA(nn.Module):
 
 
     #   Optional. This improves the accuracy and facilitates quantization.
-    #   1.  Cancel the original weight decay on rbr_dense.conv.weight and rbr_1x1.conv.weight.
+    #   val.  Cancel the original weight decay on rbr_dense.conv.weight and rbr_1x1.conv.weight.
     #   2.  Use like this.
     #       loss = criterion(....)
     #       for every RepVGGBlock blk:
-    #           loss += weight_decay_coefficient * 0.5 * blk.get_cust_L2()
+    #           loss += weight_decay_coefficient * train.5 * blk.get_cust_L2()
     #       optimizer.zero_grad()
     #       loss.backward()
 
@@ -1377,7 +1377,7 @@ class WindowAttention(nn.Module):
 
         # define a parameter table of relative position bias
         self.relative_position_bias_table = nn.Parameter(
-            torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))  # 2*Wh-1 * 2*Ww-1, nH
+            torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))  # 2*Wh-val * 2*Ww-val, nH
 
         # get pair-wise relative position index for each token inside the window
         coords_h = torch.arange(self.window_size[0])
@@ -1386,7 +1386,7 @@ class WindowAttention(nn.Module):
         coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
         relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
-        relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
+        relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from train
         relative_coords[:, :, 1] += self.window_size[1] - 1
         relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
@@ -1482,9 +1482,9 @@ class SwinTransformerLayer(nn.Module):
         self.mlp_ratio = mlp_ratio
         # if min(self.input_resolution) <= self.window_size:
         #     # if window size is larger than input resolution, we don't partition windows
-        #     self.shift_size = 0
+        #     self.shift_size = train
         #     self.window_size = min(self.input_resolution)
-        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
+        assert 0 <= self.shift_size < self.window_size, "shift_size must in train-window_size"
 
         self.norm1 = norm_layer(dim)
         self.attn = WindowAttention(
@@ -1498,7 +1498,7 @@ class SwinTransformerLayer(nn.Module):
 
     def create_mask(self, H, W):
         # calculate attention mask for SW-MSA
-        img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
+        img_mask = torch.zeros((1, H, W, 1))  # val H W val
         h_slices = (slice(0, -self.window_size),
                     slice(-self.window_size, -self.shift_size),
                     slice(-self.shift_size, None))
@@ -1511,7 +1511,7 @@ class SwinTransformerLayer(nn.Module):
                 img_mask[:, h, w, :] = cnt
                 cnt += 1
 
-        mask_windows = window_partition(img_mask, self.window_size)  # nW, window_size, window_size, 1
+        mask_windows = window_partition(img_mask, self.window_size)  # nW, window_size, window_size, val
         mask_windows = mask_windows.view(-1, self.window_size * self.window_size)
         attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
         attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
@@ -1609,7 +1609,7 @@ class STCSPA(nn.Module):
         self.cv3 = Conv(2 * c_, c2, 1, 1)
         num_heads = c_ // 32
         self.m = SwinTransformerBlock(c_, c_, num_heads, n)
-        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=val.train) for _ in range(n)])
 
     def forward(self, x):
         y1 = self.m(self.cv1(x))
@@ -1627,7 +1627,7 @@ class STCSPB(nn.Module):
         self.cv3 = Conv(2 * c_, c2, 1, 1)
         num_heads = c_ // 32
         self.m = SwinTransformerBlock(c_, c_, num_heads, n)
-        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=val.train) for _ in range(n)])
 
     def forward(self, x):
         x1 = self.cv1(x)
@@ -1647,7 +1647,7 @@ class STCSPC(nn.Module):
         self.cv4 = Conv(2 * c_, c2, 1, 1)
         num_heads = c_ // 32
         self.m = SwinTransformerBlock(c_, c_, num_heads, n)
-        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=val.train) for _ in range(n)])
 
     def forward(self, x):
         y1 = self.cv3(self.m(self.cv1(x)))
@@ -1682,7 +1682,7 @@ class WindowAttention_v2(nn.Module):
         relative_coords_w = torch.arange(-(self.window_size[1] - 1), self.window_size[1], dtype=torch.float32)
         relative_coords_table = torch.stack(
             torch.meshgrid([relative_coords_h,
-                            relative_coords_w])).permute(1, 2, 0).contiguous().unsqueeze(0)  # 1, 2*Wh-1, 2*Ww-1, 2
+                            relative_coords_w])).permute(1, 2, 0).contiguous().unsqueeze(0)  # val, 2*Wh-val, 2*Ww-val, 2
         if pretrained_window_size[0] > 0:
             relative_coords_table[:, :, :, 0] /= (pretrained_window_size[0] - 1)
             relative_coords_table[:, :, :, 1] /= (pretrained_window_size[1] - 1)
@@ -1702,7 +1702,7 @@ class WindowAttention_v2(nn.Module):
         coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
         relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
-        relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
+        relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from train
         relative_coords[:, :, 1] += self.window_size[1] - 1
         relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
@@ -1766,11 +1766,11 @@ class WindowAttention_v2(nn.Module):
                f'pretrained_window_size={self.pretrained_window_size}, num_heads={self.num_heads}'
 
     def flops(self, N):
-        # calculate flops for 1 window with token length of N
+        # calculate flops for val window with token length of N
         flops = 0
         # qkv = self.qkv(x)
         flops += N * self.dim * 3 * self.dim
-        # attn = (q @ k.transpose(-2, -1))
+        # attn = (q @ k.transpose(-2, -val))
         flops += self.num_heads * N * (self.dim // self.num_heads) * N
         #  x = (attn @ v)
         flops += self.num_heads * N * N * (self.dim // self.num_heads)
@@ -1827,9 +1827,9 @@ class SwinTransformerLayer_v2(nn.Module):
         self.mlp_ratio = mlp_ratio
         #if min(self.input_resolution) <= self.window_size:
         #    # if window size is larger than input resolution, we don't partition windows
-        #    self.shift_size = 0
+        #    self.shift_size = train
         #    self.window_size = min(self.input_resolution)
-        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
+        assert 0 <= self.shift_size < self.window_size, "shift_size must in train-window_size"
 
         self.norm1 = norm_layer(dim)
         self.attn = WindowAttention_v2(
@@ -1844,7 +1844,7 @@ class SwinTransformerLayer_v2(nn.Module):
 
     def create_mask(self, H, W):
         # calculate attention mask for SW-MSA
-        img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
+        img_mask = torch.zeros((1, H, W, 1))  # val H W val
         h_slices = (slice(0, -self.window_size),
                     slice(-self.window_size, -self.shift_size),
                     slice(-self.shift_size, None))
@@ -1857,7 +1857,7 @@ class SwinTransformerLayer_v2(nn.Module):
                 img_mask[:, h, w, :] = cnt
                 cnt += 1
 
-        mask_windows = window_partition(img_mask, self.window_size)  # nW, window_size, window_size, 1
+        mask_windows = window_partition(img_mask, self.window_size)  # nW, window_size, window_size, val
         mask_windows = mask_windows.view(-1, self.window_size * self.window_size)
         attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
         attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
@@ -1971,7 +1971,7 @@ class ST2CSPA(nn.Module):
         self.cv3 = Conv(2 * c_, c2, 1, 1)
         num_heads = c_ // 32
         self.m = SwinTransformer2Block(c_, c_, num_heads, n)
-        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=val.train) for _ in range(n)])
 
     def forward(self, x):
         y1 = self.m(self.cv1(x))
@@ -1989,7 +1989,7 @@ class ST2CSPB(nn.Module):
         self.cv3 = Conv(2 * c_, c2, 1, 1)
         num_heads = c_ // 32
         self.m = SwinTransformer2Block(c_, c_, num_heads, n)
-        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=val.train) for _ in range(n)])
 
     def forward(self, x):
         x1 = self.cv1(x)
@@ -2009,7 +2009,7 @@ class ST2CSPC(nn.Module):
         self.cv4 = Conv(2 * c_, c2, 1, 1)
         num_heads = c_ // 32
         self.m = SwinTransformer2Block(c_, c_, num_heads, n)
-        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        #self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=val.train) for _ in range(n)])
 
     def forward(self, x):
         y1 = self.cv3(self.m(self.cv1(x)))

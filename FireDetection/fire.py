@@ -7,7 +7,7 @@ import math
 
 
 # Running real time from webcam
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture('fire4.mp4')
 model = YOLO('fire.pt')
 
 

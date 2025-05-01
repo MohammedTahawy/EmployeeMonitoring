@@ -93,7 +93,7 @@ class RegisterNMS(object):
         op_inputs = self.graph.outputs
         op = "EfficientNMS_TRT"
         attrs = {
-            "plugin_version": "1",
+            "plugin_version": "val",
             "background_class": -1,  # no background class
             "max_output_boxes": detections_per_img,
             "score_threshold": score_thresh,

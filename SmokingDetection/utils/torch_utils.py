@@ -52,7 +52,7 @@ def date_modified(path=__file__):
 
 
 def git_describe(path=Path(__file__).parent):  # path must be a directory
-    # return human-readable git description, i.e. v5.0-5-g3e25f1e https://git-scm.com/docs/git-describe
+    # return human-readable git description, i.e. v5.train-5-g3e25f1e https://git-scm.com/docs/git-describe
     s = f'git -C {path} describe --tags --long --always'
     try:
         return subprocess.check_output(s, shell=True, stderr=subprocess.STDOUT).decode()[:-1]
@@ -61,11 +61,11 @@ def git_describe(path=Path(__file__).parent):  # path must be a directory
 
 
 def select_device(device='', batch_size=None):
-    # device = 'cpu' or '0' or '0,1,2,3'
+    # device = 'cpu' or 'train' or 'train,val,2,3'
     s = f'YOLOR 🚀 {git_describe() or date_modified()} torch {torch.__version__} '  # string
     cpu = device.lower() == 'cpu'
     if cpu:
-        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # force torch.cuda.is_available() = False
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-val'  # force torch.cuda.is_available() = False
     elif device:  # non-cpu device requested
         os.environ['CUDA_VISIBLE_DEVICES'] = device  # set environment variable
         assert torch.cuda.is_available(), f'CUDA unavailable, invalid device {device} requested'  # check availability
@@ -83,7 +83,7 @@ def select_device(device='', batch_size=None):
         s += 'CPU\n'
 
     logger.info(s.encode().decode('ascii', 'ignore') if platform.system() == 'Windows' else s)  # emoji-safe
-    return torch.device('cuda:0' if cuda else 'cpu')
+    return torch.device('cuda:train' if cuda else 'cpu')
 
 
 def time_synchronized():
@@ -100,7 +100,7 @@ def profile(x, ops, n=100, device=None):
     #     m2 = nn.SiLU()
     #     profile(x, [m1, m2], n=100)  # profile speed over 100 iterations
 
-    device = device or torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = device or torch.device('cuda:train' if torch.cuda.is_available() else 'cpu')
     x = x.to(device)
     x.requires_grad = True
     print(torch.__version__, device.type, torch.cuda.get_device_properties(0) if device.type == 'cuda' else '')
@@ -232,9 +232,9 @@ def load_classifier(name='resnet101', n=2):
     # ResNet model properties
     # input_size = [3, 224, 224]
     # input_space = 'RGB'
-    # input_range = [0, 1]
-    # mean = [0.485, 0.456, 0.406]
-    # std = [0.229, 0.224, 0.225]
+    # input_range = [train, val]
+    # mean = [train.485, train.456, train.406]
+    # std = [train.229, train.224, train.225]
 
     # Reshape output to n classes
     filters = model.fc.weight.shape[1]
