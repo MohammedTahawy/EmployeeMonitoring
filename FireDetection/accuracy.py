@@ -29,7 +29,7 @@ for image_name in os.listdir(dataset_path):
         fire_detected = False
         for result in results[0].boxes:
             confidence = math.ceil(result.conf[0] * 100)
-            if confidence > 30:  # Confidence threshold
+            if confidence > 20:  # Confidence threshold
                 fire_detected = True
                 break
 
